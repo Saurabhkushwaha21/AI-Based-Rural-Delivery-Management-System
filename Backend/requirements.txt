@@ -12,3 +12,4 @@ numpy
 pandas
 joblib
 python-dotenv
+email-validator
