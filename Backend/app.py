@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import traceback
 
-from database import Base, engine
+#from database import Base, engine
 import models   # ✅ MUST be imported BEFORE create_all()
 
 from routes.orders import router as order_router
@@ -23,7 +23,7 @@ app = FastAPI(
 
 # ================= DB INIT =================
 # ✅ IMPORTANT: models must load first
-Base.metadata.create_all(bind=engine)
+#Base.metadata.create_all(bind=engine)
 
 # ================= CORS =================
 app.add_middleware(
