@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuralDeliver — Place Order</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/styles.css">
+  <style>
+    .order-form-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 1.5rem;
+      align-items: start;
+    }
+    @media (max-width: 900px) { .order-form-layout { grid-template-columns: 1fr; } }
+
+    .step-indicator { display: flex; align-items: center; gap: 0; margin-bottom: 2rem; }
+    .step { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--text-3); }
+    .step.active { color: var(--primary); }
+    .step.done   { color: var(--secondary); }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700;
+      background: var(--surface); transition: var(--transition); flex-shrink: 0;
+    }
+    .step.active .step-num { border-color: var(--primary);    background: var(--primary);    color: white; }
+    .step.done   .step-num { border-color: var(--secondary);  background: var(--secondary);  color: white; }
+    .step-line { flex: 1; height: 2px; background: var(--border); min-width: 30px; }
+    .step-line.done { background: var(--secondary); }
+
+    .map-container { background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden; }
+    .map-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .map-visual {
+      width: 100%; height: 280px;
+      background: linear-gradient(145deg, #e0f2fe 0%, #d1fae5 40%, #fef3c7 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 0.5rem; position: relative; overflow: hidden;
+    }
+    .map-visual::before {
+      content: ''; position: absolute; inset: 0;
+      background-image: linear-gradient(rgba(37,99,235,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(37,99,235,0.1) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .map-pin { font-size: 2.5rem; animation: bounce 1.5s ease infinite; position: relative; z-index: 1; }
+    @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    .map-label { font-size: 0.8rem; font-weight: 600; color: var(--text-2); background: white; padding: 0.25rem 0.75rem; border-radius: 100px; box-shadow: var(--shadow-sm); position: relative; z-index: 1; }
+    .map-actions { padding: 0.875rem 1rem; background: var(--surface-2); display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    .order-summary { border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden; }
+    .summary-header { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); padding: 1.25rem; color: white; }
+    .summary-header h3 { color: white; font-size: 1rem; }
+    .summary-header p  { opacity: 0.85; font-size: 0.8rem; margin-top: 0.25rem; }
+    .summary-body { background: var(--surface); }
+    .summary-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border); gap: 0.5rem; }
+    .summary-item:last-child { border-bottom: none; }
+    .summary-key { font-size: 0.8rem; color: var(--text-2); flex-shrink: 0; }
+    .summary-val { font-size: 0.85rem; font-weight: 600; color: var(--text); text-align: right; }
+    .summary-footer { padding: 1rem 1.25rem; background: var(--surface); border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <div class="page-wrapper">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Place New Order 📦</h1>
+          <p>Fill in the delivery details below</p>
+        </div>
+        <a href="dashboard.html" class="btn btn-ghost">← Back</a>
+      </div>
+
+      <!-- Step Indicator -->
+      <div class="step-indicator">
+        <div class="step active" id="step-1"><div class="step-num">1</div><span>Delivery Info</span></div>
+        <div class="step-line" id="line-1"></div>
+        <div class="step" id="step-2"><div class="step-num">2</div><span>Location</span></div>
+        <div class="step-line" id="line-2"></div>
+        <div class="step" id="step-3"><div class="step-num">3</div><span>Review & Submit</span></div>
+      </div>
+
+      <div class="order-form-layout">
+        <!-- LEFT: Form -->
+        <div>
+          <form id="order-form" onsubmit="submitOrder(event)">
+
+            <!-- Section 1: Delivery Info -->
+            <div class="card mb-2">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">📋 Delivery Details</div>
+                  <div class="card-subtitle">Who is this for and what are we delivering?</div>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- receiver (backend field name) -->
+                <div class="form-group">
+                  <label class="form-label" for="receiver">Receiver Name <span class="required">*</span></label>
+                  <input type="text" id="receiver" name="receiver" class="form-control" placeholder="Full name of receiver" oninput="updateSummary()">
+                </div>
+                <!-- phone (backend field name) -->
+                <div class="form-group">
+                  <label class="form-label" for="phone">Receiver Phone <span class="required">*</span></label>
+                  <input type="tel" id="phone" name="phone" class="form-control" placeholder="10-digit mobile" maxlength="10" oninput="updateSummary()">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- package_type (backend field name) -->
+                <div class="form-group">
+                  <label class="form-label" for="package_type">Package Type <span class="required">*</span></label>
+                  <select id="package_type" name="package_type" class="form-control" onchange="updateSummary()">
+                    <option value="">Select type...</option>
+                    <option value="General">📦 General</option>
+                    <option value="Fragile">🔮 Fragile</option>
+                    <option value="Medicine">💊 Medicine</option>
+                    <option value="Food">🍱 Food</option>
+                    <option value="Electronics">📱 Electronics</option>
+                    <option value="Documents">📄 Documents</option>
+                  </select>
+                </div>
+                <!-- weight (backend field name, number) -->
+                <div class="form-group">
+                  <label class="form-label" for="weight">Weight (kg) <span class="required">*</span></label>
+                  <input type="number" id="weight" name="weight" class="form-control" placeholder="e.g. 2.5" min="0.1" max="50" step="0.1" oninput="updateSummary()">
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 2: Location -->
+            <div class="card mb-2">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">📍 Delivery Location</div>
+                  <div class="card-subtitle">Where should we deliver this?</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline" onclick="detectLocation(this)">📡 Auto-detect</button>
+              </div>
+
+              <!-- address (backend field name) -->
+              <div class="form-group">
+                <label class="form-label" for="address">Full Address <span class="required">*</span></label>
+                <input type="text" id="address" name="address" class="form-control" placeholder="Village, Gram Panchayat, Tehsil, District" oninput="updateSummary()">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="landmark">Landmark</label>
+                <input type="text" id="landmark" class="form-control" placeholder="Near school, temple, market...">
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                <!-- latitude (backend field name) -->
+                <div class="form-group">
+                  <label class="form-label" for="latitude">Latitude <span class="required">*</span></label>
+                  <input type="number" id="latitude" name="latitude" class="form-control" placeholder="23.8388" step="0.0001" value="23.8388" oninput="updateSummary()">
+                  <span class="form-hint">Auto-filled on detect</span>
+                </div>
+                <!-- longitude (backend field name) -->
+                <div class="form-group">
+                  <label class="form-label" for="longitude">Longitude <span class="required">*</span></label>
+                  <input type="number" id="longitude" name="longitude" class="form-control" placeholder="78.7378" step="0.0001" value="78.7378" oninput="updateSummary()">
+                  <span class="form-hint">Auto-filled on detect</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn">
+              📦 Place Order
+            </button>
+          </form>
+        </div>
+
+        <!-- RIGHT: Map + Summary -->
+        <div>
+          <div class="map-container mb-2">
+            <div class="map-header">
+              <span class="section-title" style="font-size:0.875rem;">🗺️ Delivery Location</span>
+              <span class="badge badge-assigned" id="map-status">📡 Ready</span>
+            </div>
+            <div class="map-body">
+              <iframe
+                id="google-map"
+                width="100%"
+                height="280"
+                style="border:0;"
+                loading="lazy"
+                allowfullscreen
+                referrerpolicy="no-referrer-when-downgrade"
+                src="https://maps.google.com/maps?q=23.8388,78.7378&z=15&output=embed">
+              </iframe>
+              <div class="map-actions">
+                <button type="button" class="btn btn-sm btn-outline" onclick="detectLocation(this)">📡 Detect Location</button>
+                <button type="button" class="btn btn-sm btn-ghost" onclick="clearLocation()">🗑️ Clear</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Order Summary -->
+          <div class="order-summary">
+            <div class="summary-header">
+              <h3>📋 Order Summary</h3>
+              <p>Review before submitting</p>
+            </div>
+            <div class="summary-body">
+              <div class="summary-item">
+                <span class="summary-key">Receiver</span>
+                <span class="summary-val" id="sum-receiver">—</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-key">Phone</span>
+                <span class="summary-val" id="sum-phone">—</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-key">Package</span>
+                <span class="summary-val" id="sum-package">—</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-key">Weight</span>
+                <span class="summary-val" id="sum-weight">—</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-key">Address</span>
+                <span class="summary-val" id="sum-address">—</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-key">Coordinates</span>
+                <span class="summary-val" id="sum-coords" style="font-family:var(--font-mono);font-size:0.75rem;">—</span>
+              </div>
+            </div>
+            <div class="summary-footer">
+              <div class="d-flex align-center gap-1" style="justify-content:space-between;">
+                <span class="text-muted text-small">Estimated delivery</span>
+                <span class="fw-700" style="color:var(--secondary);">2–3 Business Days</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/app.js"></script>
+<script>
+const user = getUser();
+const token = getToken();
+
+if (!user || !token) {
+  redirectToLogin();
+}
+
+// 🔥 IMPORTANT FIX
+if (user.role !== "user") {
+  redirectToDashboard(user.role);
+}
+
+  initApp(getRole(), 'Place Order');
+
+  function updateSummary() {
+    const get = (id) => document.getElementById(id)?.value || '';
+    document.getElementById('sum-receiver').textContent = get('receiver') || '—';
+    document.getElementById('sum-phone').textContent    = get('phone')    || '—';
+
+    const pt = document.getElementById('package_type');
+    document.getElementById('sum-package').textContent = pt.options[pt.selectedIndex]?.text?.replace(/^[^\w]+/, '') || '—';
+
+    document.getElementById('sum-weight').textContent  = get('weight') ? get('weight') + ' kg' : '—';
+    document.getElementById('sum-address').textContent = get('address') || '—';
+
+    const lat = get('latitude');
+    const lng = get('longitude');
+
+    document.getElementById('sum-coords').textContent =
+      lat && lng ? `${lat}, ${lng}` : '—';
+
+    const map = document.getElementById("google-map");
+
+    if (lat && lng) {
+      map.src = `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`;
+    }
+
+    if (get('address')) {
+      const addr = get('address');
+      document.getElementById('map-label').textContent = addr.substring(0, 40) + (addr.length > 40 ? '...' : '');
+    }
+  }
+
+  function detectLocation(btn) {
+    const orig = btn.textContent;
+    btn.textContent = '⏳ Detecting...';
+    btn.disabled = true;
+
+    if (!navigator.geolocation) {
+      showToast('warning', 'Not Supported', 'Using mock coordinates.');
+      setMockLocation(btn, orig); return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        document.getElementById('latitude').value  = pos.coords.latitude.toFixed(6);
+        document.getElementById('longitude').value = pos.coords.longitude.toFixed(6);
+        document.getElementById('map-status').textContent = '✅ Located';
+        document.getElementById('map-status').className   = 'badge badge-delivered';
+        btn.textContent = orig; btn.disabled = false;
+        showToast('success', 'Location Detected', `Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)}`);
+        updateSummary();
+      },
+      () => { showToast('warning', 'Location Denied', 'Using mock coordinates for Sagar, MP.'); setMockLocation(btn, orig); }
+    );
+  }
+
+  function setMockLocation(btn, orig) {
+    document.getElementById('latitude').value  = '23.8388';
+    document.getElementById('longitude').value = '78.7378';
+    document.getElementById('map-status').textContent = '📍 Mock Location';
+    document.getElementById('map-status').className   = 'badge badge-pending';
+    if (btn) { btn.textContent = orig; btn.disabled = false; }
+    updateSummary();
+  }
+
+  function clearLocation() {
+    document.getElementById('latitude').value  = '';
+    document.getElementById('longitude').value = '';
+    document.getElementById('map-label').textContent   = 'Drop pin to set location';
+    document.getElementById('map-status').textContent  = '📡 Ready';
+    document.getElementById('map-status').className    = 'badge badge-assigned';
+    updateSummary();
+  }
+
+  // ── Submit Order via POST /api/orders/create ──
+  // body: { receiver, phone, package_type, weight, address, latitude, longitude }
+  async function submitOrder(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+
+    const receiver     = document.getElementById('receiver').value.trim();
+    const phone        = document.getElementById('phone').value.trim();
+    const package_type = document.getElementById('package_type').value;
+    const weight       = parseFloat(document.getElementById('weight').value);
+    const address      = document.getElementById('address').value.trim();
+    const latitude     = parseFloat(document.getElementById('latitude').value);
+    const longitude    = parseFloat(document.getElementById('longitude').value);
+    
+    if (!receiver || !phone || !package_type || isNaN(weight) || !address || isNaN(latitude) || isNaN(longitude)) {
+    showToast('error', 'Incomplete Form', 'Please fill all required fields.');
+      return;
+    }
+
+    if (phone.length !== 10) {
+      showToast("error", "Invalid Phone", "Enter valid 10-digit number");
+      return;
+    }
+
+    if (weight <= 0) {  
+      showToast("error", "Invalid Weight", "Weight must be greater than 0");
+      return;
+    }
+    setButtonLoading(btn, true, 'Placing order...');
+
+    console.log("Sending order:", {
+    receiver, phone, package_type, weight, address, latitude, longitude});
+    try {
+      // POST /api/orders/create with exact backend field names
+      await API.createOrder({ receiver, phone, package_type, weight, address, latitude, longitude });
+      showToast('success', 'Order Placed! 🎉', 'Your delivery is now in queue.');
+      setTimeout(() => window.location.replace('dashboard.html'), 1500);
+    } catch (err) {
+      showToast('error', 'Failed', err.message);
+      setButtonLoading(btn, false);
+    }
+  }
+
+  updateSummary();
+
+  window.addEventListener("pageshow", function (event) {
+  if (event.persisted || performance.getEntriesByType("navigation")[0].type === "back_forward") {
+    window.location.reload();
+  }
+});
+
+window.history.pushState(null, "", window.location.href);
+window.onpopstate = function () {
+  window.location.href = "dashboard.html";
+};
+
+</script>
+</body>
+</html>

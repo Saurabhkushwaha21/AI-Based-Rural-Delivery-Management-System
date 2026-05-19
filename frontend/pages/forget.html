@@ -1,0 +1,582 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuralDeliver — Forgot Password</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* ── Step cards ── */
+    .step-card {
+      display: none;
+      animation: slideIn 0.3s ease;
+    }
+    .step-card.active { display: block; }
+ 
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+ 
+    /* ── OTP input row ── */
+    .otp-row {
+      display: flex;
+      gap: 0.625rem;
+      justify-content: center;
+      margin: 1.5rem 0;
+    }
+    .otp-input {
+      width: 52px; height: 56px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 1.4rem;
+      font-weight: 700;
+      text-align: center;
+      font-family: var(--font-mono);
+      color: var(--text);
+      background: var(--surface);
+      transition: var(--transition);
+      outline: none;
+    }
+    .otp-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+    .otp-input.filled { border-color: var(--primary); background: var(--primary-light); }
+    .otp-input.error  { border-color: var(--danger);  background: var(--danger-light); }
+ 
+    /* ── Resend timer ── */
+    .resend-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--text-2);
+      margin-top: 0.25rem;
+    }
+    .resend-btn {
+      background: none; border: none; font-size: 0.875rem;
+      font-weight: 600; color: var(--primary); cursor: pointer;
+      font-family: var(--font);
+    }
+    .resend-btn:disabled { color: var(--text-3); cursor: default; }
+ 
+    /* ── Password strength bar ── */
+    .strength-bar-wrap {
+      height: 4px;
+      background: var(--border);
+      border-radius: 100px;
+      margin-top: 0.5rem;
+      overflow: hidden;
+    }
+    .strength-bar {
+      height: 100%;
+      border-radius: 100px;
+      transition: width 0.3s ease, background 0.3s ease;
+      width: 0%;
+    }
+    .strength-label {
+      font-size: 0.72rem;
+      margin-top: 0.3rem;
+      font-weight: 600;
+    }
+ 
+    /* ── Success state ── */
+    .success-circle {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: var(--secondary-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem;
+      margin: 0 auto 1.25rem;
+      animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.5); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+ 
+    /* ── Step progress dots ── */
+    .step-dots {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1.75rem;
+    }
+    .step-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: var(--transition);
+    }
+    .step-dot.active   { background: var(--primary); width: 24px; border-radius: 100px; }
+    .step-dot.done     { background: var(--secondary); }
+ 
+    /* ── Phone display badge ── */
+    .phone-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 0.35rem 0.875rem;
+      border-radius: 100px;
+      font-size: 0.875rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      margin: 0.75rem 0 0.25rem;
+    }
+ 
+    .password-wrapper { position: relative; }
+    .toggle-pw {
+      position: absolute; right: 0.875rem; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; font-size: 1.1rem; color: var(--text-2);
+    }
+  </style>
+</head>
+<body>
+<div class="auth-page">
+ 
+  <!-- Left Panel (same as login) -->
+  <div class="auth-left">
+    <div class="auth-branding">
+      <div class="auth-brand-icon">🚚</div>
+      <h1 class="auth-brand-title">RuralDeliver</h1>
+      <p class="auth-brand-subtitle">Smart AI-powered delivery system bridging the last mile in rural India</p>
+      <div class="auth-features">
+        <div class="auth-feature">
+          <span class="auth-feature-icon">🔒</span>
+          <span class="auth-feature-text">Secure OTP-based password reset</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon">📱</span>
+          <span class="auth-feature-text">Verification via registered mobile</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon">⚡</span>
+          <span class="auth-feature-text">Reset in under 60 seconds</span>
+        </div>
+      </div>
+    </div>
+  </div>
+ 
+  <!-- Right Panel -->
+  <div class="auth-right">
+    <div class="auth-card">
+ 
+      <!-- Back to login -->
+      <a href="../index.html" class="d-flex align-center gap-1" style="font-size:0.875rem;color:var(--text-2);margin-bottom:1.25rem;font-weight:600;width:fit-content;">
+        ← Back to Login
+      </a>
+ 
+      <!-- Step progress dots -->
+      <div class="step-dots">
+        <div class="step-dot active"  id="dot-1"></div>
+        <div class="step-dot"         id="dot-2"></div>
+        <div class="step-dot"         id="dot-3"></div>
+      </div>
+ 
+      <!-- ───────────── STEP 1: Enter Phone ───────────── -->
+      <div class="step-card active" id="step-phone">
+        <div class="auth-card-header">
+          <h2 class="auth-card-title">Forgot Password 🔑</h2>
+          <p class="auth-card-subtitle">Enter your registered phone number to receive an OTP</p>
+        </div>
+ 
+        <div class="form-group">
+          <label class="form-label" for="phone">Phone Number <span class="required">*</span></label>
+          <input
+            type="tel" id="phone" class="form-control"
+            placeholder="Enter your 10-digit phone" maxlength="10"
+            oninput="this.value = this.value.replace(/\D/g,'')">
+          <span class="form-hint">We'll send a 6-digit OTP to this number</span>
+        </div>
+ 
+        <button class="btn btn-primary btn-block btn-lg" id="send-otp-btn" onclick="sendOTP()">
+          Send OTP →
+        </button>
+ 
+        <div class="auth-footer" style="margin-top:1.25rem;">
+          Remembered your password? <a href="../index.html" style="color:var(--primary);font-weight:600;">Sign In</a>
+        </div>
+      </div>
+ 
+      <!-- ───────────── STEP 2: Enter OTP ───────────── -->
+      <div class="step-card" id="step-otp">
+        <div class="auth-card-header">
+          <h2 class="auth-card-title">Verify OTP 📲</h2>
+          <p class="auth-card-subtitle">Enter the 6-digit code sent to</p>
+          <div class="phone-badge">📞 <span id="phone-display">—</span></div>
+        </div>
+ 
+        <div class="otp-row">
+          <input class="otp-input" id="otp-1" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,1)" onkeydown="otpKeydown(event,1)">
+          <input class="otp-input" id="otp-2" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,2)" onkeydown="otpKeydown(event,2)">
+          <input class="otp-input" id="otp-3" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,3)" onkeydown="otpKeydown(event,3)">
+          <input class="otp-input" id="otp-4" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,4)" onkeydown="otpKeydown(event,4)">
+          <input class="otp-input" id="otp-5" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,5)" onkeydown="otpKeydown(event,5)">
+          <input class="otp-input" id="otp-6" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,6)" onkeydown="otpKeydown(event,6)">
+        </div>
+ 
+        <div class="resend-row">
+          <span id="resend-text">Resend OTP in <strong id="timer">30</strong>s</span>
+          <button class="resend-btn" id="resend-btn" disabled onclick="resendOTP()">Resend</button>
+        </div>
+ 
+        <button class="btn btn-primary btn-block btn-lg" id="verify-otp-btn" onclick="verifyOTP()" style="margin-top:1.25rem;">
+          Verify OTP →
+        </button>
+ 
+        <button class="btn btn-ghost btn-block" onclick="goToStep('phone')" style="margin-top:0.5rem;">
+          ← Change Number
+        </button>
+      </div>
+ 
+      <!-- ───────────── STEP 3: New Password ───────────── -->
+      <div class="step-card" id="step-password">
+        <div class="auth-card-header">
+          <h2 class="auth-card-title">New Password 🔐</h2>
+          <p class="auth-card-subtitle">Set a strong new password for your account</p>
+        </div>
+ 
+        <div class="form-group">
+          <label class="form-label" for="new-password">New Password <span class="required">*</span></label>
+          <div class="password-wrapper">
+            <input type="password" id="new-password" class="form-control"
+              placeholder="Min. 8 characters" style="padding-right:2.5rem;"
+              oninput="checkStrength(this.value)">
+            <button type="button" class="toggle-pw" onclick="togglePw('new-password', this)">👁️</button>
+          </div>
+          <div class="strength-bar-wrap">
+            <div class="strength-bar" id="strength-bar"></div>
+          </div>
+          <div class="strength-label" id="strength-label" style="color:var(--text-3);">Enter a password</div>
+        </div>
+ 
+        <div class="form-group">
+          <label class="form-label" for="confirm-password">Confirm Password <span class="required">*</span></label>
+          <div class="password-wrapper">
+            <input type="password" id="confirm-password" class="form-control"
+              placeholder="Re-enter new password" style="padding-right:2.5rem;"
+              oninput="checkMatch()">
+            <button type="button" class="toggle-pw" onclick="togglePw('confirm-password', this)">👁️</button>
+          </div>
+          <div class="form-hint" id="match-hint"></div>
+        </div>
+ 
+        <button class="btn btn-primary btn-block btn-lg" id="reset-btn" onclick="resetPassword()">
+          Reset Password →
+        </button>
+      </div>
+ 
+      <!-- ───────────── STEP 4: Success ───────────── -->
+      <div class="step-card" id="step-success">
+        <div style="text-align:center;padding:1rem 0;">
+          <div class="success-circle">✅</div>
+          <h2 style="margin-bottom:0.5rem;">Password Reset!</h2>
+          <p style="color:var(--text-2);font-size:0.9rem;margin-bottom:1.75rem;">
+            Your password has been reset successfully. You can now sign in with your new password.
+          </p>
+          <a href="../index.html" class="btn btn-primary btn-block btn-lg">
+            Go to Sign In →
+          </a>
+        </div>
+      </div>
+ 
+    </div>
+  </div>
+</div>
+ 
+<div class="toast-container"></div>
+ 
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  let currentPhone = '';
+  let verifiedOtp  = '';
+  let timerInterval = null;
+ 
+  // ── Redirect if already logged in ──
+  redirectIfLoggedIn();
+ 
+  // ══════════════════════════════════════
+  // STEP NAVIGATION
+  // ══════════════════════════════════════
+  function goToStep(step) {
+    document.querySelectorAll('.step-card').forEach(c => c.classList.remove('active'));
+    document.getElementById('step-' + step).classList.add('active');
+    updateDots(step);
+  }
+ 
+  function updateDots(step) {
+    const order = ['phone', 'otp', 'password', 'success'];
+    const idx   = order.indexOf(step);
+    ['dot-1','dot-2','dot-3'].forEach((id, i) => {
+      const dot = document.getElementById(id);
+      dot.classList.remove('active','done');
+      if (i < idx)       dot.classList.add('done');
+      else if (i === idx) dot.classList.add('active');
+    });
+  }
+ 
+  // ══════════════════════════════════════
+  // STEP 1 — SEND OTP
+  // ══════════════════════════════════════
+  async function sendOTP() {
+    const phoneInput = document.getElementById('phone');
+    const phone = phoneInput.value.trim();
+ 
+    if (phone.length !== 10 || !/^\d{10}$/.test(phone)) {
+      showToast('error', 'Invalid Phone', 'Enter a valid 10-digit phone number.');
+      phoneInput.focus();
+      return;
+    }
+ 
+    const btn = document.getElementById('send-otp-btn');
+    setButtonLoading(btn, true, 'Sending OTP...');
+    currentPhone = phone;
+ 
+    try {
+      // ── Real API call (add your forgot-password endpoint here) ──
+      // e.g. await apiRequest(`${API_BASE}/api/auth/forgot-password`, 'POST', { phone }, false);
+      // For now, simulating with a delay:
+      await API.forgotPassword({ phone });
+ 
+      showToast('success', 'OTP Sent! 📲', `6-digit code sent to ${phone}`);
+      document.getElementById('phone-display').textContent = phone;
+      goToStep('otp');
+      startTimer(30);
+      document.getElementById('otp-1').focus();
+ 
+    } catch (err) {
+      showToast('error', 'Failed to Send OTP', err.message || 'Please try again.');
+    }
+    setButtonLoading(btn, false);
+  }
+ 
+  // ══════════════════════════════════════
+  // OTP INPUT BEHAVIOUR
+  // ══════════════════════════════════════
+  function otpInput(el, idx) {
+    el.value = el.value.replace(/\D/g, '').slice(-1); // numbers only, 1 char
+    el.classList.toggle('filled', el.value !== '');
+ 
+    if (el.value && idx < 6) {
+      document.getElementById('otp-' + (idx + 1)).focus();
+    }
+ 
+    // Auto-verify when all 6 filled
+    const otp = getOtpValue();
+    if (otp.length === 6) verifyOTP();
+  }
+ 
+  function otpKeydown(e, idx) {
+    if (e.key === 'Backspace') {
+      const el = document.getElementById('otp-' + idx);
+      if (!el.value && idx > 1) {
+        document.getElementById('otp-' + (idx - 1)).focus();
+      }
+      el.classList.remove('filled');
+    }
+    if (e.key === 'ArrowLeft'  && idx > 1) document.getElementById('otp-' + (idx - 1)).focus();
+    if (e.key === 'ArrowRight' && idx < 6) document.getElementById('otp-' + (idx + 1)).focus();
+  }
+ 
+  function getOtpValue() {
+    return [1,2,3,4,5,6].map(i => document.getElementById('otp-' + i).value).join('');
+  }
+ 
+  function clearOtpInputs(error = false) {
+    [1,2,3,4,5,6].forEach(i => {
+      const el = document.getElementById('otp-' + i);
+      el.value = '';
+      el.classList.remove('filled');
+      el.classList.toggle('error', error);
+    });
+    setTimeout(() => [1,2,3,4,5,6].forEach(i => document.getElementById('otp-' + i).classList.remove('error')), 800);
+    document.getElementById('otp-1').focus();
+  }
+ 
+  // ══════════════════════════════════════
+  // STEP 2 — VERIFY OTP
+  // ══════════════════════════════════════
+  async function verifyOTP() {
+    const otp = getOtpValue();
+    if (otp.length < 6) {
+      showToast('warning', 'Incomplete OTP', 'Enter all 6 digits.');
+      return;
+    }
+ 
+    const btn = document.getElementById('verify-otp-btn');
+    setButtonLoading(btn, true, 'Verifying...');
+ 
+    try {
+      // ── Real API call ──
+      // await apiRequest(`${API_BASE}/api/auth/verify-otp`, 'POST', { phone: currentPhone, otp }, false);
+      await API.verifyOTP({ phone: currentPhone, otp });
+ 
+      // Demo: accept '123456' or any 6-digit code
+      if (otp !== '123456' && otp.length === 6) {
+        // In real app this would throw if OTP is wrong
+        // For demo, we accept any 6 digits
+      }
+ 
+      verifiedOtp = otp;
+      stopTimer();
+      showToast('success', 'OTP Verified! ✅', 'Now set your new password.');
+      goToStep('password');
+      document.getElementById('new-password').focus();
+ 
+    } catch (err) {
+      clearOtpInputs(true);
+      showToast('error', 'Wrong OTP', err.message || 'The code is incorrect. Try again.');
+    }
+    setButtonLoading(btn, false);
+  }
+ 
+  // ══════════════════════════════════════
+  // RESEND TIMER
+  // ══════════════════════════════════════
+  function startTimer(seconds) {
+    const timerEl  = document.getElementById('timer');
+    const resendBtn = document.getElementById('resend-btn');
+    const resendText = document.getElementById('resend-text');
+    let count = seconds;
+ 
+    resendBtn.disabled = true;
+    resendText.style.display = 'inline';
+    timerEl.textContent = count;
+ 
+    timerInterval = setInterval(() => {
+      count--;
+      timerEl.textContent = count;
+      if (count <= 0) {
+        clearInterval(timerInterval);
+        resendBtn.disabled = false;
+        resendText.style.display = 'none';
+      }
+    }, 1000);
+  }
+ 
+  function stopTimer() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  }
+ 
+  async function resendOTP() {
+    const btn = document.getElementById('resend-btn');
+    btn.disabled = true;
+ 
+    try {
+      await API.forgotPassword({ phone: currentPhone });
+      // await apiRequest(`${API_BASE}/api/auth/forgot-password`, 'POST', { phone: currentPhone }, false);
+      clearOtpInputs();
+      showToast('success', 'OTP Resent! 📲', `New code sent to ${currentPhone}`);
+      startTimer(30);
+    } catch (err) {
+      showToast('error', 'Resend Failed', err.message);
+      btn.disabled = false;
+    }
+  }
+ 
+  // ══════════════════════════════════════
+  // PASSWORD STRENGTH
+  // ══════════════════════════════════════
+  function checkStrength(pw) {
+    let score = 0;
+    if (pw.length >= 8)              score++;
+    if (/[A-Z]/.test(pw))            score++;
+    if (/[0-9]/.test(pw))            score++;
+    if (/[^A-Za-z0-9]/.test(pw))     score++;
+ 
+    const bar   = document.getElementById('strength-bar');
+    const label = document.getElementById('strength-label');
+    const levels = [
+      { w: '0%',   color: '',                  text: 'Enter a password',  col: 'var(--text-3)' },
+      { w: '25%',  color: 'var(--danger)',      text: 'Weak',              col: 'var(--danger)' },
+      { w: '50%',  color: 'var(--warning)',     text: 'Fair',              col: 'var(--warning)' },
+      { w: '75%',  color: 'var(--info)',        text: 'Good',              col: 'var(--info)' },
+      { w: '100%', color: 'var(--secondary)',   text: 'Strong ✓',          col: 'var(--secondary)' },
+    ];
+ 
+    const lvl = pw.length === 0 ? levels[0] : levels[score] || levels[1];
+    bar.style.width      = lvl.w;
+    bar.style.background = lvl.color;
+    label.textContent    = lvl.text;
+    label.style.color    = lvl.col;
+ 
+    checkMatch();
+  }
+ 
+  function checkMatch() {
+    const pw      = document.getElementById('new-password').value;
+    const confirm = document.getElementById('confirm-password').value;
+    const hint    = document.getElementById('match-hint');
+    if (!confirm) { hint.textContent = ''; return; }
+    if (pw === confirm) {
+      hint.textContent = '✅ Passwords match';
+      hint.style.color = 'var(--secondary)';
+    } else {
+      hint.textContent = '❌ Passwords do not match';
+      hint.style.color = 'var(--danger)';
+    }
+  }
+ 
+  // ══════════════════════════════════════
+  // STEP 3 — RESET PASSWORD
+  // ══════════════════════════════════════
+  async function resetPassword() {
+    const newPw  = document.getElementById('new-password').value;
+    const confirm = document.getElementById('confirm-password').value;
+ 
+    if (newPw.length < 8) {
+      showToast('error', 'Too Short', 'Password must be at least 8 characters.');
+      return;
+    }
+    if (newPw !== confirm) {
+      showToast('error', 'Mismatch', 'Passwords do not match.');
+      return;
+    }
+ 
+    const btn = document.getElementById('reset-btn');
+    setButtonLoading(btn, true, 'Resetting...');
+ 
+    try {
+      // ── Real API call ──
+      // await apiRequest(`${API_BASE}/api/auth/reset-password`, 'POST', {
+      //   phone: currentPhone, otp: verifiedOtp, new_password: newPw
+      // }, false);
+      await API.resetPassword({
+        phone: currentPhone,
+        otp: verifiedOtp,
+        new_password: newPw
+      });
+ 
+      showToast('success', 'Password Reset! 🎉', 'You can now login with your new password.');
+      goToStep('success');
+ 
+      // Auto-redirect after 4 seconds
+      setTimeout(() => window.location.href = 'index.html', 4000);
+ 
+    } catch (err) {
+      showToast('error', 'Reset Failed', err.message || 'Something went wrong. Try again.');
+    }
+    setButtonLoading(btn, false);
+  }
+ 
+  // ══════════════════════════════════════
+  // HELPERS
+  // ══════════════════════════════════════
+  function togglePw(id, btn) {
+    const input = document.getElementById(id);
+    if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+    else { input.type = 'password'; btn.textContent = '👁️'; }
+  }
+ 
+  // Handle Enter key on phone input
+  document.getElementById('phone').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendOTP();
+  });
+</script>
+</body>
+</html>

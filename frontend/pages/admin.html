@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuralDeliver — Admin Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    .admin-grid { display: grid; grid-template-columns: 1fr 350px; gap: 1.5rem; align-items: start; }
+    @media (max-width: 1100px) { .admin-grid { grid-template-columns: 1fr; } }
+
+    .hub-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .hub-form-header { padding: 1.25rem; background: linear-gradient(135deg, var(--secondary), var(--secondary-dark)); color: white; }
+    .hub-form-header h3 { color: white; }
+    .hub-form-header p  { opacity: 0.85; font-size: 0.8rem; margin-top: 0.25rem; }
+    .hub-form-body { padding: 1.25rem; }
+
+    .agent-item { display: flex; align-items: center; gap: 0.875rem; padding: 0.875rem; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); transition: var(--transition); margin-bottom: 0.5rem; }
+    .agent-item:hover { border-color: var(--primary); background: var(--primary-light); }
+    .agent-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 0.875rem; flex-shrink: 0; }
+    .agent-name  { font-size: 0.875rem; font-weight: 600; }
+    .agent-meta  { font-size: 0.75rem; color: var(--text-2); }
+    .agent-count { margin-left: auto; background: var(--primary-light); color: var(--primary); font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.5rem; border-radius: 100px; }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9000; align-items: center; justify-content: center; padding: 1rem; }
+    .modal-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page-wrapper">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Admin Dashboard 🛡️</h1>
+          <p>Manage orders, hubs, and delivery agents</p>
+        </div>
+        <div class="d-flex gap-1">
+          <button class="btn btn-outline" onclick="mlAutoAssign()">🤖 Auto-Assign ML</button>
+          <button class="btn btn-primary" onclick="exportOrders()">📥 Export CSV</button>
+        </div>
+      </div>
+
+      <!-- Stat Cards — from GET /api/orders/dashboard/admin -->
+      <div class="stat-grid" id="admin-stats">
+        <div class="stat-card blue">
+          <div class="stat-icon blue">📦</div>
+          <div><div class="stat-value" id="s-total">—</div><div class="stat-label">Total Orders</div></div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-icon yellow">⏳</div>
+          <div><div class="stat-value" id="s-pending">—</div><div class="stat-label">Pending</div></div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-icon blue">🚴</div>
+          <div><div class="stat-value" id="s-assigned">—</div><div class="stat-label">Assigned</div></div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon green">✅</div>
+          <div><div class="stat-value" id="s-delivered">—</div><div class="stat-label">Delivered</div></div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-icon yellow">🏭</div>
+          <div><div class="stat-value" id="s-hubs">—</div><div class="stat-label">Active Hubs</div></div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon green">🚴</div>
+          <div><div class="stat-value" id="s-agents">—</div><div class="stat-label">Agents</div></div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(this, 'tab-orders')">📦 All Orders</button>
+        <button class="tab-btn" onclick="switchTab(this, 'tab-hubs')">🏭 Manage Hubs</button>
+        <button class="tab-btn" onclick="switchTab(this, 'tab-agents')">🚴 Agents</button>
+      </div>
+
+      <!-- Tab: Orders — GET /api/orders/all -->
+      <div class="tab-content active" id="tab-orders">
+        <div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1rem;">
+          <div class="d-flex align-center gap-2" style="flex-wrap:wrap;">
+            <div class="search-bar">
+              <span class="search-icon">🔍</span>
+              <input type="text" placeholder="Search by ID, receiver, status..." id="order-search" oninput="renderOrders()">
+            </div>
+            <select class="form-control" id="status-filter" onchange="renderOrders()" style="width:auto;padding:.5rem .875rem;">
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="assigned">Assigned</option>
+              <option value="delivered">Delivered</option>
+            </select>
+          </div>
+
+          <!-- LIVE MAP SECTION -->
+        <div class="card mb-2">
+          <div class="section-header">
+            <span class="section-title">🗺️ Live Agent Tracking</span>
+          </div>
+
+          <div id="map" style="height:400px;width:100%;border-radius:12px;"></div>
+        </div>
+        </div>
+
+        <div class="card" style="padding: 0; overflow: hidden;">
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Receiver</th>
+                  <th>Phone</th>
+                  <th>Address</th>
+                  <th>Package</th>
+                  <th>Weight</th>
+                  <th>Status</th>
+                  <th>Agent</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="orders-table-body">
+                <tr><td colspan="9" style="text-align:center;padding:2rem;">
+                  <div class="big-spinner" style="margin:0 auto 1rem;"></div>
+                  <p class="text-muted">Loading orders...</p>
+                </td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Hubs — GET /api/hubs/ + POST /api/hubs/add -->
+      <div class="tab-content" id="tab-hubs">
+        <div class="admin-grid">
+          <div>
+            <div class="section-header">
+              <span class="section-title">🏭 Hub Network</span>
+              <span class="text-muted text-small" id="hub-count"></span>
+            </div>
+            <div class="hub-grid" id="hub-grid">
+              <div class="empty-state">
+                <div class="big-spinner" style="margin:0 auto 1rem;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="hub-form">
+              <div class="hub-form-header">
+                <h3>➕ Add New Hub</h3>
+                <p>Create a new distribution hub</p>
+              </div>
+              <div class="hub-form-body">
+                <!-- POST /api/hubs/add  body: { name, latitude, longitude } -->
+                <form id="hub-form" onsubmit="addHub(event)">
+                  <div class="form-group">
+                    <label class="form-label" for="hub-name">Hub Name <span class="required">*</span></label>
+                    <input type="text" id="hub-name" class="form-control" placeholder="e.g. Hub Echo">
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label class="form-label" for="hub-latitude">Latitude <span class="required">*</span></label>
+                      <input type="number" id="hub-latitude" class="form-control" placeholder="23.8388" step="0.0001">
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" for="hub-longitude">Longitude <span class="required">*</span></label>
+                      <input type="number" id="hub-longitude" class="form-control" placeholder="78.7378" step="0.0001">
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-secondary btn-block" id="hub-submit-btn">➕ Add Hub</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Agents — GET /api/orders/agents -->
+      <div class="tab-content" id="tab-agents">
+        <div class="section-header">
+          <span class="section-title">🚴 Delivery Agents</span>
+          <button class="btn btn-sm btn-primary" onclick="showToast('info','Coming Soon','Add Agent form will be available soon.')">➕ Add Agent</button>
+        </div>
+        <div id="agents-list">
+          <div class="empty-state">
+            <div class="big-spinner" style="margin:0 auto 1rem;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Modal — POST /api/delivery/assign  body: { order_id, agent_id } -->
+<div class="modal-overlay" id="assign-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Assign Delivery Agent</h3>
+      <button class="modal-close" onclick="closeAssignModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted mb-2" style="font-size:0.875rem;">Select an agent for order <strong id="assign-order-id"></strong></p>
+      <div class="form-group">
+        <label class="form-label">Select Agent</label>
+        <select id="agent-select" class="form-control">
+          <option value="">Choose agent...</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAssignModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAssign()">Assign Agent</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  let adminOrders  = [];
+  let adminHubs    = [];
+  let adminAgents  = [];
+  let currentOrderId = null;
+
+  // ===== AUTH CHECK =====
+requireAuth();
+
+const role = getRole();
+
+if (role !== 'admin') {
+  redirectToDashboard(role); 
+}
+
+// ✅ ONLY THIS
+initApp('admin', 'Admin Dashboard');
+
+
+  async function loadData() {
+    try {
+      // Parallel API calls
+      const [ordersData, hubsData, agentsData, dashData] = await Promise.allSettled([
+        API.getAllOrders(),
+        API.getHubs(),
+        API.getOrderAgents(),
+        API.getAdminDashboard(),
+      ]);
+
+      // Orders — GET /api/orders/all
+      adminOrders = ordersData.status === 'fulfilled'
+        ? (Array.isArray(ordersData.value) ? ordersData.value : (ordersData.value?.orders || MOCK.orders))
+        : MOCK.orders;
+
+      // Hubs — GET /api/hubs/  returns [{ id, name, latitude, longitude }]
+      adminHubs = hubsData.status === 'fulfilled'
+        ? (Array.isArray(hubsData.value) ? hubsData.value : (hubsData.value?.hubs || MOCK.hubs))
+        : MOCK.hubs;
+
+      // Agents — GET /api/orders/agents
+      adminAgents = agentsData.status === 'fulfilled'
+        ? (Array.isArray(agentsData.value) ? agentsData.value : (agentsData.value?.agents || MOCK.agents))
+        : MOCK.agents;
+
+      // Dashboard stats — GET /api/orders/dashboard/admin
+      const stats = dashData.status === 'fulfilled'
+        ? (dashData.value || MOCK.adminDashboard)
+        : MOCK.adminDashboard;
+
+      document.getElementById('s-total').textContent    = stats.total_orders ?? stats.total    ?? '—';
+      document.getElementById('s-pending').textContent  = stats.pending  ?? '—';
+      document.getElementById('s-assigned').textContent = stats.assigned ?? '—';
+      document.getElementById('s-delivered').textContent= stats.delivered?? '—';
+      document.getElementById('s-hubs').textContent     = stats.total_hubs ?? stats.hubs   ?? '—';
+      document.getElementById('s-agents').textContent   = stats.total_agents ?? stats.agents ?? '—';
+      if (!ordersData || ordersData.status === 'rejected') {
+      console.log("Fallback to mock orders");}
+      if (ordersData.status === 'rejected') showToast('warning', 'Using Demo Data', 'Backend not reachable.');
+
+      populateAgentSelect();
+      renderOrders();
+      renderHubs();
+      renderAgents();
+
+    } catch (err) {
+      showToast('error', 'Load Failed', err.message);
+    }
+  }
+
+  // Populate modal agent dropdown with real agent ids
+  function populateAgentSelect() {
+    const sel = document.getElementById('agent-select');
+    sel.innerHTML = '<option value="">Choose agent...</option>' +
+      adminAgents.map(a => `<option value="${a.id}">${a.name} (${a.phone || ''})</option>`).join('');
+  }
+
+  function renderOrders() {
+    const query   = document.getElementById('order-search')?.value || '';
+    const statusF = document.getElementById('status-filter')?.value || '';
+    const q = query.toLowerCase();
+
+    let filtered = adminOrders.filter(o => {
+  const q = query.toLowerCase();
+
+  return (
+    String(o.id).toLowerCase().includes(q) ||
+    (o.receiver || o.customer || '').toLowerCase().includes(q) ||
+    (o.address || '').toLowerCase().includes(q) ||
+    (o.status || '').toLowerCase().includes(q)
+  );
+});
+
+if (statusF) {
+  filtered = filtered.filter(o =>
+    (o.status || '').toLowerCase() === statusF.toLowerCase()
+  );
+}
+
+    if (!filtered.length) {
+      document.getElementById('orders-table-body').innerHTML = `
+        <tr><td colspan="9"><div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <h3>No orders found</h3><p>Try adjusting your filters.</p>
+        </div></td></tr>`;
+      return;
+    }
+
+    document.getElementById('orders-table-body').innerHTML = filtered.map(o => `
+      <tr id="row-${o.id}">
+        <td><span class="order-id">#${o.id}</span></td>
+        <td class="fw-600">${o.receiver || o.customer || '—'}</td>
+        <td>${o.phone || '—'}</td>
+        <td>${o.address || '—'}</td>
+        <td>${o.package_type || '—'}</td>
+        <td>${o.weight ? o.weight + ' kg' : '—'}</td>
+        <td>${statusBadge(o.status)}</td>
+        <td>${o.agent_id ? `Agent #${o.agent_id}` : '<span class="text-muted">Unassigned</span>'}</td>
+        <td>
+          <div class="d-flex gap-1">
+            ${o.status === 'pending' ? `<button class="btn btn-sm btn-outline" onclick="openAssignModal(${o.id})">Assign</button>` : ''}
+            <button class="btn btn-sm btn-ghost" onclick="viewOrder(${o.id})">View</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  // Hub card using real backend fields: { id, name, latitude, longitude }
+  function renderHubs() {
+    document.getElementById('hub-count').textContent = `${adminHubs.length} hubs`;
+    if (!adminHubs.length) {
+      document.getElementById('hub-grid').innerHTML = `<div class="empty-state"><div class="empty-state-icon">🏭</div><h3>No hubs yet</h3><p>Add your first distribution hub.</p></div>`;
+      return;
+    }
+    document.getElementById('hub-grid').innerHTML = adminHubs.map(h => `
+      <div class="hub-card">
+        <div class="hub-card-icon">🏭</div>
+        <div class="hub-card-name">${h.name}</div>
+        <div class="hub-card-coords" style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-2);margin-bottom:0.5rem;">
+          ${h.latitude}, ${h.longitude}
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:0.875rem;padding-top:0.875rem;border-top:1px solid var(--border);">
+          <span class="badge badge-delivered">Active</span>
+          <span class="text-muted text-small">ID: ${h.id}</span>
+        </div>
+      </div>`).join('');
+  }
+
+  // Agent list using real backend fields
+  function renderAgents() {
+    if (!adminAgents.length) {
+      document.getElementById('agents-list').innerHTML = `<div class="empty-state"><div class="empty-state-icon">🚴</div><h3>No agents</h3></div>`;
+      return;
+    }
+    document.getElementById('agents-list').innerHTML = adminAgents.map(a => `
+      <div class="agent-item">
+        <div class="agent-avatar">${(a.name || 'A').charAt(0)}</div>
+        <div>
+          <div class="agent-name">${a.name || 'Agent #' + a.id}</div>
+          <div class="agent-meta">📞 ${a.phone || '—'}</div>
+        </div>
+        <span class="badge ${a.is_active !== false ? 'badge-delivered' : 'badge-cancelled'}" style="margin-left:auto;">
+          ${a.is_active !== false ? 'Active' : 'Off-duty'}
+        </span>
+        ${a.deliveries != null ? `<span class="agent-count">${a.deliveries} 📦</span>` : ''}
+      </div>`).join('');
+  }
+
+  function switchTab(btn, tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.remove('active');
+  });
+
+  btn.classList.add('active');
+
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+
+  document.getElementById(tabId).classList.add('active');
+}
+
+  function openAssignModal(orderId) {
+    currentOrderId = orderId;
+    document.getElementById('assign-order-id').textContent = '#' + orderId;
+    document.getElementById('assign-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeAssignModal() {
+    document.getElementById('assign-modal').classList.remove('open');
+    document.body.style.overflow = '';
+    currentOrderId = null;
+  }
+
+  // POST /api/delivery/assign  body: { order_id, agent_id }
+  async function confirmAssign() {
+    const agent_id = parseInt(document.getElementById('agent-select').value);
+    if (!agent_id) { showToast('warning', 'Select Agent', 'Please select an agent to assign.'); return; }
+
+   const btn = document.querySelector("#assign-modal .btn-primary");
+    setButtonLoading(btn, true, 'Assigning...');
+
+    try {
+      await API.assignDelivery(currentOrderId, agent_id);
+
+      const agent = adminAgents.find(a => a.id === agent_id);
+      const order = adminOrders.find(o => o.id === currentOrderId);
+      if (order) { order.status = 'assigned'; order.agent_id = agent_id; }
+
+      showToast('success', 'Agent Assigned!', `${agent?.name || 'Agent'} is now handling order #${currentOrderId}`);
+      closeAssignModal();
+      renderOrders();
+    } catch (err) {
+      // Demo fallback
+      const order = adminOrders.find(o => o.id === currentOrderId);
+      if (order) { order.status = 'assigned'; order.agent_id = agent_id; }
+      showToast('success', 'Assigned (Demo)', 'Backend unreachable — demo updated.');
+      closeAssignModal();
+      renderOrders();
+    }
+    setButtonLoading(btn, false, 'Assign Agent');
+  }
+
+  function viewOrder(id) {
+    const order = adminOrders.find(o => o.id === id);
+    if (!order) return;
+    showToast('info', `Order #${id}`, `${order.receiver || order.customer} → ${order.address}`);
+  }
+
+  // POST /api/hubs/add  body: { name, latitude, longitude }
+  async function addHub(e) {
+    e.preventDefault();
+    const name      = document.getElementById('hub-name').value.trim();
+    const latitude  = parseFloat(document.getElementById('hub-latitude').value);
+    const longitude = parseFloat(document.getElementById('hub-longitude').value);
+
+    if (!name || isNaN(latitude) || isNaN(longitude)) {
+      showToast('error', 'Missing Fields', 'Fill all hub fields.'); return;
+    }
+
+    const btn = document.getElementById('hub-submit-btn');
+    setButtonLoading(btn, true, 'Adding hub...');
+
+    try {
+      // Returns { id, name, latitude, longitude }
+      const newHub = await API.addHub(name, latitude, longitude);
+      adminHubs.push(newHub);
+      document.getElementById('hub-form').reset();
+      renderHubs();
+      document.getElementById('s-hubs').textContent = adminHubs.length;
+      showToast('success', 'Hub Added!', `${name} is now part of the network.`);
+    } catch (err) {
+      // Demo fallback
+      adminHubs.push({ id: Date.now(), name, latitude, longitude });
+      document.getElementById('hub-form').reset();
+      renderHubs();
+      showToast('success', 'Hub Added (Demo)', 'Backend unreachable — demo updated.');
+    }
+    setButtonLoading(btn, false, '➕ Add Hub');
+  }
+
+  // POST /api/ml/auto-assign
+  async function mlAutoAssign() {
+    const btn = document.querySelector('.btn.btn-outline');
+    setButtonLoading(btn, true, '🤖 Running...');
+    try {
+      const result = await API.mlAutoAssign();
+      showToast('success', 'Auto-Assign Complete', result?.message || 'ML assigned pending orders.');
+      loadData();
+    } catch (err) {
+      showToast('error', 'Auto-Assign Failed', err.message);
+    }
+    setButtonLoading(btn, false, '🤖 Auto-Assign ML');
+  }
+
+  function exportOrders() {
+    const headers = ['ID', 'Receiver', 'Phone', 'Address', 'Package', 'Weight', 'Status', 'Agent ID'];
+    const rows = adminOrders.map(o => [
+      o.id, o.receiver || o.customer || '', o.phone || '',
+      o.address || '', o.package_type || '', o.weight || '',
+      o.status, o.agent_id || 'Unassigned'
+    ]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'orders_export.csv';
+    a.click();
+    showToast('success', 'Exported!', 'Orders exported as CSV.');
+  }
+
+  async function loadAgentMap() {
+  const res = await API.getAgentLocations();
+  console.log(res);
+}
+
+let map;
+let markers = {};
+
+function initMap() {
+  map = L.map('map').setView([23.8388, 78.7378], 12);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  loadAgentsLive();
+
+  setInterval(loadAgentsLive, 3000);
+}
+
+
+async function loadAgentsLive() {
+  const res = await API.getAgentLocations();
+  const agents = Array.isArray(res) ? res : [];
+
+  agents.forEach(agent => {
+    const pos = [parseFloat(agent.lat), parseFloat(agent.lon)];
+
+    if (!markers[agent.agent_id]) {
+      markers[agent.agent_id] = L.marker(pos)
+        .addTo(map)
+        .bindPopup(`Agent ${agent.agent_id}`);
+    } else {
+      markers[agent.agent_id].setLatLng(pos);
+    }
+  });
+}
+
+
+  loadData();
+  // safety delay so map DOM is ready
+setTimeout(() => {
+  if (typeof initMap === "function") {
+    initMap();
+  }
+}, 1000);
+  
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</body>
+</html>

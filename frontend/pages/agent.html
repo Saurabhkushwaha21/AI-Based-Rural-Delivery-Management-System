@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuralDeliver — Agent Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/styles.css">
+  <style>
+    .agent-stats {
+      background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-dark) 100%);
+      border-radius: var(--radius-xl); padding: 2rem; color: white;
+      margin-bottom: 2rem; position: relative; overflow: hidden;
+    }
+    .agent-stats::before {
+      content: '🚴'; position: absolute; right: -20px; top: -20px;
+      font-size: 8rem; opacity: 0.1; transform: rotate(-15deg);
+    }
+    .agent-stats h2 { color: white; margin-bottom: 0.35rem; }
+    .agent-stats p  { opacity: 0.85; font-size: 0.875rem; }
+    .agent-mini-stats { display: flex; gap: 2rem; margin-top: 1.5rem; flex-wrap: wrap; }
+    .agent-mini-stat .val { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .agent-mini-stat .lbl { font-size: 0.75rem; opacity: 0.85; margin-top: 0.15rem; }
+
+    .delivery-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: var(--transition); margin-bottom: 1rem; }
+    .delivery-card:hover { box-shadow: var(--shadow); border-color: var(--secondary); }
+    .delivery-card-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+    .delivery-card-body { padding: 1.25rem; }
+    .delivery-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+    @media (max-width: 480px) { .delivery-details-grid { grid-template-columns: 1fr; } }
+    .detail-box { background: var(--surface-2); border-radius: var(--radius); padding: 0.75rem; }
+    .detail-box-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); margin-bottom: 0.25rem; }
+    .detail-box-value { font-size: 0.875rem; font-weight: 600; color: var(--text); }
+    .delivery-card-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+    .progress-bar-wrapper { background: var(--surface-2); border-radius: 100px; height: 6px; margin-bottom: 0.35rem; }
+    .progress-bar { height: 100%; border-radius: 100px; background: var(--secondary); transition: width 0.5s ease; }
+    .delivered-overlay { text-align: center; padding: 0.5rem; background: var(--secondary-light); border-radius: var(--radius); color: var(--secondary-dark); font-weight: 700; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page-wrapper">
+
+      <!-- Agent Hero Stats — from GET /api/orders/dashboard/agent -->
+      <div class="agent-stats">
+        <h2 id="agent-greeting">Good Morning, Agent! 👋</h2>
+        <p>Here are your assigned deliveries.</p>
+        <div class="agent-mini-stats">
+          <div class="agent-mini-stat">
+            <div class="val" id="ag-assigned">—</div>
+            <div class="lbl">Assigned</div>
+          </div>
+          <div class="agent-mini-stat">
+            <div class="val" id="ag-delivered">—</div>
+            <div class="lbl">Delivered</div>
+          </div>
+          <div class="agent-mini-stat">
+            <div class="val" id="ag-rate">—</div>
+            <div class="lbl">Success Rate</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="page-header-left">
+          <h2>📋 My Deliveries</h2>
+          <p>Tap an order to view details and mark as delivered</p>
+        </div>
+        <div class="d-flex gap-1" style="flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="setAgentFilter('all', this)" id="af-all">All</button>
+          <button class="btn btn-sm btn-ghost" onclick="setAgentFilter('ASSIGNED', this)" id="af-assigned">Pending</button>
+          <button class="btn btn-sm btn-ghost" onclick="setAgentFilter('DELIVERED', this)" id="af-delivered">Delivered</button>
+        </div>
+      </div>
+
+      <!-- Deliveries List -->
+      <div id="deliveries-container">
+        <div class="empty-state">
+          <div class="big-spinner" style="margin:0 auto 1rem;"></div>
+          <p class="text-muted">Loading deliveries...</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  let agentDeliveries = [];
+  let agentFilter = 'all';
+
+ // ===== AUTH CHECK =====
+requireAuth();
+
+if (getRole() !== 'agent') {
+  redirectToDashboard(getRole());
+}
+
+// ===== INIT =====
+initUserUI();
+initApp('agent', 'Agent Panel');
+
+  // Set greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+  const user = getUser();
+  document.getElementById('agent-greeting').textContent = `${greeting}, ${user?.name || 'Agent'} 👋`;
+
+  async function loadDeliveries() {
+    try {
+      // GET /api/orders/dashboard/agent — returns agent stats
+      const dashData = await API.getAgentDashboard().catch(() => null);
+      if (dashData) {
+        document.getElementById('ag-assigned').textContent = dashData.assigned ?? '—';
+        document.getElementById('ag-delivered').textContent= dashData.delivered ?? '—';
+        document.getElementById('ag-rate').textContent     = dashData.success_rate ?? '—';
+      }
+
+      // GET /api/delivery/my — returns agent's deliveries
+      const data = await API.getMyDeliveries();
+      agentDeliveries = Array.isArray(data) ? data : (data?.deliveries || data?.orders || []);
+
+      if (!dashData) updateAgentStatsLocal();
+      setAgentFilter('all', document.getElementById('af-all'));
+
+    } catch (err) {
+      // Demo fallback
+      agentDeliveries = MOCK.orders.filter(o => (o.status || '').toUpperCase() === 'ASSIGNED');
+      agentDeliveries.push({ ...MOCK.orders[0], id: 99, status: 'delivered' });
+      updateAgentStatsLocal();
+      setAgentFilter('all', document.getElementById('af-all'));
+      showToast('warning', 'Using Demo Data', 'Could not reach backend.');
+    }
+  }
+
+  function updateAgentStatsLocal() {
+      const assigned = agentDeliveries.filter(
+        o => (o.status || '').toUpperCase() === 'ASSIGNED'
+      ).length;
+
+      const delivered = agentDeliveries.filter(
+        o => (o.status || '').toUpperCase() === 'DELIVERED'
+      ).length;
+    const total = agentDeliveries.length;
+    const rate  = total > 0 ? Math.round((delivered / total) * 100) + '%' : '—';
+    document.getElementById('ag-assigned').textContent  = assigned;
+    document.getElementById('ag-delivered').textContent = delivered;
+    document.getElementById('ag-rate').textContent      = rate;
+  }
+
+  function setAgentFilter(filter, btn) {
+    agentFilter = filter;
+    document.querySelectorAll('#af-all, #af-assigned, #af-delivered').forEach(b => {
+      b.classList.remove('btn-primary'); b.classList.add('btn-ghost');
+    });
+    btn.classList.replace('btn-ghost', 'btn-primary');
+    renderDeliveries();
+  }
+
+  function renderDeliveries() {
+    let list = agentDeliveries;
+    if (agentFilter !== 'all') {
+  list = list.filter(
+    o => (o.status || '').toUpperCase() === agentFilter.toUpperCase()
+  );
+}
+
+    if (!list.length) {
+      document.getElementById('deliveries-container').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <h3>No deliveries here</h3>
+          <p>Nothing to show for this filter.</p>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('deliveries-container').innerHTML = list.map(order => `
+      <div class="delivery-card" id="dc-${order.id}">
+        <div class="delivery-card-header">
+          <div class="d-flex align-center gap-1">
+            <span class="order-id">#${order.id}</span>
+            ${statusBadge(order.status)}
+          </div>
+          <span class="text-muted text-small">📅 ${formatDate(order.created_at || order.created)}</span>
+        </div>
+
+        <div class="delivery-card-body">
+          <div class="delivery-details-grid">
+            <div class="detail-box">
+              <div class="detail-box-label">👤 Receiver</div>
+              <div class="detail-box-value">${order.receiver || order.customer || '—'}</div>
+            </div>
+            <div class="detail-box">
+              <div class="detail-box-label">📞 Phone</div>
+              <div class="detail-box-value">${order.phone || '—'}</div>
+            </div>
+            <div class="detail-box" style="grid-column: 1 / -1;">
+              <div class="detail-box-label">📍 Delivery Address</div>
+              <div class="detail-box-value">${order.address || '—'}</div>
+            </div>
+            <div class="detail-box">
+              <div class="detail-box-label">📦 Package</div>
+              <div class="detail-box-value">${order.package_type || '—'}</div>
+            </div>
+            <div class="detail-box">
+              <div class="detail-box-label">⚖️ Weight</div>
+              <div class="detail-box-value">${order.weight ? order.weight + ' kg' : '—'}</div>
+            </div>
+            ${(order.latitude && order.longitude) ? `
+            <div class="detail-box" style="grid-column: 1 / -1;">
+              <div class="detail-box-label">🌐 Coordinates</div>
+              <div class="detail-box-value" style="font-family:var(--font-mono);font-size:0.8rem;">${order.latitude}, ${order.longitude}</div>
+            </div>` : ''}
+          </div>
+
+          ${(order.status || '').toUpperCase() === 'ASSIGNED'? `
+            <div class="progress-bar-wrapper">
+              <div class="progress-bar" style="width: 45%;"></div>
+            </div>
+            <p class="text-muted text-small">En route — pick up from hub and deliver</p>
+          ` : ''}
+        </div>
+
+        <div class="delivery-card-footer">
+          <div class="d-flex gap-1">
+            ${(order.latitude && order.longitude) ? `
+            <a href="https://maps.google.com?q=${order.latitude},${order.longitude}" target="_blank" class="btn btn-sm btn-outline">
+              🗺️ Navigate
+            </a>` : ''}
+            ${order.phone ? `<button class="btn btn-sm btn-ghost" onclick="callCustomer('${order.phone}', '${order.receiver || ''}')">📞 Call</button>` : ''}
+          </div>
+
+          ${order.status === 'assigned'
+            ? `<button class="btn btn-sm btn-secondary" onclick="markDelivered(${order.id}, this)">✅ Mark Delivered</button>`
+            : `<div class="delivered-overlay">✅ Delivered Successfully</div>`
+          }
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // PUT /api/delivery/{id}/delivered
+  async function markDelivered(orderId, btn) {
+    if (!confirm(`Confirm delivery for order #${orderId}?`)) return;
+    setButtonLoading(btn, true, 'Updating...');
+
+    try {
+      await API.markDelivered(orderId);
+      const order = agentDeliveries.find(o => o.id === orderId);
+      if (order) order.status = 'DELIVERED';
+      showToast('success', 'Delivered! 🎉', `Order #${orderId} marked as delivered.`);
+      updateAgentStatsLocal();
+      renderDeliveries();
+    } catch (err) {
+      // Demo fallback
+      const order = agentDeliveries.find(o => o.id === orderId);
+      if (order) order.status = 'DELIVERED';
+      showToast('success', 'Delivered (Demo)', 'Backend unreachable — demo updated.');
+      updateAgentStatsLocal();
+      renderDeliveries();
+    }
+  }
+
+  function callCustomer(phone, name) {
+    showToast('info', 'Calling Customer', `Initiating call to ${name || phone}...`);
+    // In a real app: window.location.href = 'tel:' + phone;
+  }
+  function sendLocation(agentId) {
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+
+    const data = {
+      agent_id: agentId,
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+      status: "delivering"
+    };
+
+    await fetch("http://127.0.0.1:8000/api/tracking/update-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+
+  });
+}
+
+// repeat every 10 sec
+setInterval(() => sendLocation(1), 10000);
+
+  loadDeliveries();
+</script>
+</body>
+</html>

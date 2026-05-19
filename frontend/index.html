@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuralDeliver — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .password-wrapper { position: relative; }
+    .toggle-pw {
+      position: absolute; right: 0.875rem; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; font-size: 1.1rem; color: var(--text-2);
+    }
+    .role-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-bottom: 0.25rem;
+    }
+    .role-option { display: none; }
+    .role-label {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 0.75rem 0.5rem; border: 2px solid var(--border); border-radius: var(--radius);
+      cursor: pointer; transition: var(--transition); text-align: center; gap: 0.25rem;
+    }
+    .role-label:hover { border-color: var(--primary); background: var(--primary-light); }
+    .role-option:checked + .role-label {
+      border-color: var(--primary); background: var(--primary-light); color: var(--primary);
+    }
+    .role-icon { font-size: 1.5rem; }
+    .role-text { font-size: 0.75rem; font-weight: 600; }
+    .demo-hints {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.875rem 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .demo-hints p { font-size: 0.775rem; color: var(--text-2); margin-bottom: 0.25rem; font-weight: 600; }
+    .demo-hint { font-size: 0.75rem; color: var(--text-2); margin-bottom: 0.1rem; cursor: pointer; }
+    .demo-hint:hover { color: var(--primary); }
+    .demo-hint code {
+      background: var(--border); padding: 1px 5px; border-radius: 3px;
+      font-family: var(--font-mono); font-size: 0.7rem;
+    }
+  </style>
+</head>
+<body>
+<div class="auth-page">
+  <!-- Left Panel -->
+  <div class="auth-left">
+    <div class="auth-branding">
+      <div class="auth-brand-icon">🚚</div>
+      <h1 class="auth-brand-title">RuralDeliver</h1>
+      <p class="auth-brand-subtitle">Smart AI-powered delivery system bridging the last mile in rural India</p>
+      <div class="auth-features">
+        <div class="auth-feature">
+          <span class="auth-feature-icon">🗺️</span>
+          <span class="auth-feature-text">Smart route optimization for rural areas</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon">📦</span>
+          <span class="auth-feature-text">Real-time order tracking & management</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon">🏭</span>
+          <span class="auth-feature-text">Hub-based distribution network</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon">🚴</span>
+          <span class="auth-feature-text">Agent-driven last-mile delivery</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="auth-right">
+    <div class="auth-card">
+      <div class="auth-card-header">
+        <h2 class="auth-card-title">Welcome back 👋</h2>
+        <p class="auth-card-subtitle">Sign in to manage your deliveries</p>
+      </div>
+
+      <!-- Toggle -->
+      <div class="auth-toggle">
+        <button class="auth-toggle-btn active" id="toggle-login" onclick="switchForm('login')">Sign In</button>
+        <button class="auth-toggle-btn" id="toggle-register" onclick="switchForm('register')">Register</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <form class="auth-form active" id="login-form" onsubmit="handleLogin(event)">
+        <div class="demo-hints">
+          <p>🔑 Demo Credentials (click to fill):</p>
+          <div class="demo-hint" onclick="fillDemo('9876540001','demo123')">👤 User: <code>9876540001</code> / <code>demo123</code></div>
+          <div class="demo-hint" onclick="fillDemo('9876540002','demo123')">🛡️ Admin: <code>9876540002</code> / <code>demo123</code></div>
+          <div class="demo-hint" onclick="fillDemo('9876540003','demo123')">🚴 Agent: <code>9876540003</code> / <code>demo123</code></div>
+        </div>
+        <div class="form-group">
+        <label class="form-label" for="reg-email">Email <span class="required">*</span></label>
+         <input type="email" id="reg-email" class="form-control" placeholder="Enter your email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login-phone">Phone Number <span class="required">*</span></label>
+          <input type="tel" id="login-phone" class="form-control" placeholder="Enter your 10-digit phone" maxlength="10">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-password">Password <span class="required">*</span></label>
+          <div class="password-wrapper">
+            <input type="password" id="login-password" class="form-control" placeholder="Enter your password" style="padding-right: 2.5rem;">
+            <button type="button" class="toggle-pw" onclick="togglePassword('login-password', this)">👁️</button>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 1.25rem;">
+          <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.875rem; color:var(--text-2); cursor:pointer;">
+            <input type="checkbox" style="accent-color: var(--primary);"> Remember me
+          </label>
+          <a href="pages/forget.html" style="font-size:0.875rem; color:var(--primary); font-weight:600;">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg">
+          Sign In →
+        </button>
+      </form>
+
+      <!-- REGISTER FORM -->
+      <form class="auth-form" id="register-form" onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label class="form-label" for="reg-name">Full Name <span class="required">*</span></label>
+          <input type="text" id="reg-name" class="form-control" placeholder="Enter your full name">
+        </div>
+        <div class="form-group">
+        <label class="form-label" for="reg-email">Email <span class="required">*</span></label>
+         <input type="email" id="reg-email" class="form-control" placeholder="Enter your email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-phone">Phone Number <span class="required">*</span></label>
+          <input type="tel" id="reg-phone" class="form-control" placeholder="10-digit mobile number" maxlength="10">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="reg-password">Password <span class="required">*</span></label>
+            <div class="password-wrapper">
+              <input type="password" id="reg-password" class="form-control" placeholder="Min. 8 characters" style="padding-right:2.5rem;">
+              <button type="button" class="toggle-pw" onclick="togglePassword('reg-password', this)">👁️</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-confirm">Confirm Password <span class="required">*</span></label>
+            <input type="password" id="reg-confirm" class="form-control" placeholder="Re-enter password">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Select Role <span class="required">*</span></label>
+          <div class="role-grid">
+            <div>
+              <input type="radio" name="role" id="role-user" value="user" class="role-option" checked>
+              <label for="role-user" class="role-label">
+                <span class="role-icon">👤</span>
+                <span class="role-text">User</span>
+              </label>
+            </div>
+            <div>
+              <input type="radio" name="role" id="role-admin" value="admin" class="role-option">
+              <label for="role-admin" class="role-label">
+                <span class="role-icon">🛡️</span>
+                <span class="role-text">Admin</span>
+              </label>
+            </div>
+            <div>
+              <input type="radio" name="role" id="role-agent" value="agent" class="role-option">
+              <label for="role-agent" class="role-label">
+                <span class="role-icon">🚴</span>
+                <span class="role-text">Agent</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg">
+          Create Account →
+        </button>
+      </form>
+
+      <div class="auth-footer">
+        By continuing, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app.js"></script>
+<script>
+  // Redirect if already logged in
+  redirectIfLoggedIn();
+
+  function switchForm(type) {
+    document.getElementById('login-form').classList.toggle('active', type === 'login');
+    document.getElementById('register-form').classList.toggle('active', type === 'register');
+    document.getElementById('toggle-login').classList.toggle('active', type === 'login');
+    document.getElementById('toggle-register').classList.toggle('active', type === 'register');
+
+    const h = document.querySelector('.auth-card-title');
+    const sub = document.querySelector('.auth-card-subtitle');
+    if (type === 'login') {
+      h.textContent = 'Welcome back 👋'; sub.textContent = 'Sign in to manage your deliveries';
+    } else {
+      h.textContent = 'Create Account 🎉'; sub.textContent = 'Join the rural delivery network';
+    }
+  }
+
+  function togglePassword(id, btn) {
+    const input = document.getElementById(id);
+    if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+    else { input.type = 'password'; btn.textContent = '👁️'; }
+  }
+
+  function fillDemo(phone, pw) {
+    document.getElementById('login-phone').value = phone;
+    document.getElementById('login-password').value = pw;
+    showToast('info', 'Demo Filled', 'Click Sign In to continue.');
+  }
+
+  // Sync radio → hidden input
+  document.querySelectorAll('.role-option').forEach(radio => {
+    radio.addEventListener('change', () => {
+      
+    });
+  });
+</script>
+</body>
+</html>

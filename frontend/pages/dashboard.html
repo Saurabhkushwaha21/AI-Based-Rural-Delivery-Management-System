@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuralDeliver — My Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page-wrapper">
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>My Orders 📦</h1>
+          <p>Track and manage all your delivery requests</p>
+        </div>
+        <a href="order.html" class="btn btn-primary">➕ New Order</a>
+      </div>
+
+      <!-- Stats -->
+      <div class="stat-grid">
+        <div class="stat-card blue">
+          <div class="stat-icon blue">📦</div>
+          <div><div class="stat-value" id="stat-total">—</div><div class="stat-label">Total Orders</div></div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-icon yellow">⏳</div>
+          <div><div class="stat-value" id="stat-pending">—</div><div class="stat-label">Pending</div></div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-icon blue">🚴</div>
+          <div><div class="stat-value" id="stat-assigned">—</div><div class="stat-label">On the Way</div></div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon green">✅</div>
+          <div><div class="stat-value" id="stat-delivered">—</div><div class="stat-label">Delivered</div></div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="card mb-3" style="padding: 1rem 1.25rem;">
+        <div class="d-flex align-center gap-2" style="flex-wrap:wrap;">
+          <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Search orders..." id="search-input" oninput="filterAndRender()">
+          </div>
+          <div class="d-flex gap-1" style="flex-wrap:wrap;">
+            <button class="btn btn-sm btn-primary" id="filter-all"       onclick="setFilter('all', this)">All</button>
+            <button class="btn btn-sm btn-ghost"   id="filter-pending"   onclick="setFilter('pending', this)">Pending</button>
+            <button class="btn btn-sm btn-ghost"   id="filter-assigned"  onclick="setFilter('assigned', this)">Assigned</button>
+            <button class="btn btn-sm btn-ghost"   id="filter-delivered" onclick="setFilter('delivered', this)">Delivered</button>
+            <a href="orders.html" class="btn btn-primary">📦 View My Orders</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Orders Grid -->
+      <div class="section-header">
+        <span class="section-title">📋 Order List</span>
+        <span class="text-muted text-small" id="order-count"></span>
+      </div>
+      <div class="order-cards" id="orders-container">
+        <div style="grid-column:1/-1;">
+          <div class="empty-state">
+            <div class="big-spinner" style="margin:0 auto 1rem;"></div>
+            <p class="text-muted">Loading your orders...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/app.js"></script>
+<script>
+
+let user = null;
+let token = null;
+
+try {
+  const rawUser = localStorage.getItem("rd_user");
+  user = rawUser && rawUser !== "undefined" ? JSON.parse(rawUser) : null;
+  token = localStorage.getItem("rd_token");
+} catch (err) {
+  console.error("LocalStorage parse error:", err);
+  user = null;
+  token = null;
+}
+
+if (!user || !token) {
+  window.location.href = "../index.html";
+} else {
+  initApp('user', 'My Dashboard');
+  loadOrders();
+}
+
+  let allOrders = [];
+  let currentFilter = 'all';
+
+  // ── Load orders via GET /api/orders/my ──
+  async function loadOrders() {
+    try {
+      let data = await API.getMyOrders();
+      // Backend returns array of order objects
+      allOrders = Array.isArray(data) ? data : (data.orders || MOCK.orders.slice(0, 4));
+      updateStats();
+      filterAndRender();
+    } catch (err) {
+      // Fallback to mock data for demo
+      allOrders = (MOCK?.orders || []).slice(0, 4);
+      updateStats();
+      filterAndRender();
+      showToast('warning', 'Using Demo Data', 'Could not reach backend.');
+    }
+  }
+
+  function updateStats() {
+    document.getElementById('stat-total').textContent     = allOrders.length;
+    document.getElementById('stat-pending').textContent   = allOrders.filter(o => o.status === 'pending').length;
+    document.getElementById('stat-assigned').textContent  = allOrders.filter(o => o.status === 'assigned').length;
+    document.getElementById('stat-delivered').textContent = allOrders.filter(o => o.status === 'delivered').length;
+  }
+
+  function setFilter(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('#filter-all, #filter-pending, #filter-assigned, #filter-delivered').forEach(b => b.classList.replace('btn-primary', 'btn-ghost'));
+    btn.classList.replace('btn-ghost', 'btn-primary');
+    filterAndRender();
+  }
+
+  function filterAndRender() {
+    const query = document.getElementById('search-input').value;
+    // Search against backend field names: receiver, address, status, id
+    const q = query.toLowerCase();
+    let filtered = allOrders.filter(o =>
+      String(o.id).toLowerCase().includes(q) ||
+      (o.receiver || '').toLowerCase().includes(q) ||
+      (o.address  || '').toLowerCase().includes(q) ||
+      (o.status   || '').toLowerCase().includes(q)
+    );
+    if (currentFilter !== 'all') filtered = filtered.filter(o => o.status === currentFilter);
+
+    document.getElementById('order-count').textContent = `${filtered.length} order${filtered.length !== 1 ? 's' : ''}`;
+
+    if (!filtered.length) {
+      document.getElementById('orders-container').innerHTML = `
+        <div style="grid-column:1/-1;">
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <h3>No orders found</h3>
+            <p>Try a different filter or search term.</p>
+            <a href="order.html" class="btn btn-primary">Create New Order</a>
+          </div>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('orders-container').innerHTML = filtered.map(o => generateOrderCardUser(o)).join('');
+  }
+
+  // Card using real backend field names
+  function generateOrderCardUser(order) {
+    return `
+      <div class="order-card" id="order-${order.id}">
+        <div class="order-card-header">
+          <span class="order-id">#${order.id}</span>
+          ${statusBadge(order.status)}
+        </div>
+        <div class="order-card-body">
+          <div class="order-detail">
+            <span class="order-detail-icon">👤</span>
+            <span class="order-detail-text fw-600">${order.receiver || '—'}</span>
+          </div>
+          <div class="order-detail">
+            <span class="order-detail-icon">📞</span>
+            <span class="order-detail-text">${order.phone || '—'}</span>
+          </div>
+          <div class="order-detail">
+            <span class="order-detail-icon">📍</span>
+            <span class="order-detail-text">${order.address || '—'}</span>
+          </div>
+          <div class="order-detail">
+            <span class="order-detail-icon">📦</span>
+            <span class="order-detail-text">${order.package_type || '—'}</span>
+          </div>
+          <div class="order-detail">
+            <span class="order-detail-icon">⚖️</span>
+            <span class="order-detail-text">${order.weight ? order.weight + ' kg' : '—'}</span>
+          </div>
+          ${order.agent_id ? `
+          <div class="order-detail">
+            <span class="order-detail-icon">🚴</span>
+            <span class="order-detail-text">Agent #${order.agent_id}</span>
+          </div>` : ''}
+        </div>
+        <div class="order-card-footer">
+          <span class="text-muted text-small">${formatDate(order.created_at || order.created)}</span>
+        </div>
+      </div>`;
+  }
+
+  loadOrders();
+</script>
+</body>
+</html>
