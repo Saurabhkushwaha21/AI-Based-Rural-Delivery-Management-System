@@ -20,10 +20,9 @@ def get_db():
     finally:
         db.close()
 
-# ================= OTP STORE =================
+# ================= OTP STORE (TEMP MEMORY) =================
 otp_store = {}
-OTP_EXPIRY = 300  # 5 min
-
+OTP_EXPIRY = 300  # 5 minutes
 
 # ================= SCHEMAS =================
 class PhoneRequest(BaseModel):
@@ -38,26 +37,27 @@ class ResetRequest(BaseModel):
     otp: str
     new_password: str
 
+# ================= CLEAN EXPIRED OTP =================
+def clean_expired_otps():
+    now = time.time()
+    for key in list(otp_store.keys()):
+        if otp_store[key]["expiry"] < now:
+            del otp_store[key]
 
-# ================= SAFE SMS FUNCTION =================
-def send_sms(phone, otp):
+# ================= SMS SENDER (FIXED MSG91 FLOW) =================
+def send_sms(phone: str, otp: str):
     try:
-        url = "https://api.msg91.com/api/v5/flow/"  # REAL API (replace if using other)
+        url = "https://api.msg91.com/api/v5/flow/"
 
         payload = {
+            "flow_id": "YOUR_FLOW_ID",   # 🔥 IMPORTANT
             "sender": "RDLIVE",
-            "route": "4",
-            "country": "91",
-            "sms": [
-                {
-                    "message": f"Your OTP is {otp}",
-                    "to": [phone]
-                }
-            ]
+            "mobiles": "91" + phone,
+            "OTP": otp
         }
 
         headers = {
-            "authkey": "YOUR_API_KEY",
+            "authkey": "YOUR_API_KEY",   # 🔥 IMPORTANT
             "Content-Type": "application/json"
         }
 
@@ -66,12 +66,13 @@ def send_sms(phone, otp):
         print("📩 SMS RESPONSE:", response.text)
 
     except Exception as e:
-        print("⚠️ SMS FAILED (OTP still valid):", e)
+        print("⚠️ SMS FAILED:", e)
 
-
-# ================= SEND OTP =================
+# ================= FORGOT PASSWORD =================
 @router.post("/forgot-password")
 def forgot_password(data: PhoneRequest, db: Session = Depends(get_db)):
+
+    clean_expired_otps()
 
     user = db.query(models.User).filter(
         models.User.phone == data.phone
@@ -82,23 +83,17 @@ def forgot_password(data: PhoneRequest, db: Session = Depends(get_db)):
 
     otp = str(random.randint(100000, 999999))
 
-    # store OTP
     otp_store[data.phone] = {
         "otp": otp,
         "expiry": time.time() + OTP_EXPIRY,
         "verified": False
     }
 
-    # phone format fix
-    phone = "91" + data.phone
+    send_sms(data.phone, otp)
 
-    # send SMS safely
-    send_sms(phone, otp)
-
-    print(f"📩 OTP for {data.phone}: {otp}")
+    print(f"📩 OTP GENERATED: {data.phone} -> {otp}")
 
     return {"message": "OTP sent successfully"}
-
 
 # ================= VERIFY OTP =================
 @router.post("/verify-otp")
@@ -119,7 +114,6 @@ def verify_otp(data: VerifyRequest):
     record["verified"] = True
 
     return {"message": "OTP verified successfully"}
-
 
 # ================= RESET PASSWORD =================
 @router.post("/reset-password")

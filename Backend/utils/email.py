@@ -1,33 +1,36 @@
-﻿import os
-import smtplib
+﻿import smtplib
+import os
 from email.mime.text import MIMEText
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def send_verification_email(to_email, token):
 
     link = f"http://127.0.0.1:5500/pages/verify.html?token={token}"
-    
+
     msg = MIMEText(f"""
-    Welcome to RuralDeliver 🚴
+Welcome to RuralDeliver 🚴
 
-    Click below to verify your email:
+Click below to verify your email:
 
-    {link}
-    """)
+{link}
+""")
+
+    email_user = os.getenv("EMAIL_USER")
+    email_pass = os.getenv("EMAIL_PASS")
 
     msg["Subject"] = "Verify your email"
-    msg["From"] = os.getenv("EMAIL_USER")
+    msg["From"] = email_user
     msg["To"] = to_email
+
+    if not email_user or not email_pass:
+        print("❌ EMAIL ENV NOT LOADED")
+        return
 
     try:
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
-
-        email_user = os.getenv("EMAIL_USER")
-        email_pass = os.getenv("EMAIL_PASS")
-
-        print("EMAIL USER:", email_user)
-        print("EMAIL PASS LOADED:", bool(email_pass))
-
         server.login(email_user, email_pass)
         server.send_message(msg)
         server.quit()
@@ -35,4 +38,4 @@ def send_verification_email(to_email, token):
         print("✅ Email sent successfully")
 
     except Exception as e:
-        print("❌ Email failed:", str(e))
+        print("❌ Email failed:", e)

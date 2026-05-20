@@ -27,7 +27,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://ai-based-rural-delivery-management.netlify.app"
+        "https://ai-based-rural-delivery-management-system.onrender.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],

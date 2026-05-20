@@ -1,4 +1,6 @@
 ﻿import bcrypt
+import time
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -18,9 +20,18 @@ def get_db():
     finally:
         db.close()
 
+
+# ================= SIMPLE RATE LIMIT (RESEND) =================
+last_sent_time = {}
+RESEND_COOLDOWN = 60  # seconds
+
+
 # ================= REGISTER =================
 @router.post("/register")
 def register(user: schema.UserCreate, db: Session = Depends(get_db)):
+
+    if not user.email and not user.phone:
+        raise HTTPException(status_code=400, detail="Email or phone required")
 
     existing = db.query(models.User).filter(
         (models.User.email == user.email) |
@@ -53,11 +64,15 @@ def register(user: schema.UserCreate, db: Session = Depends(get_db)):
 
     send_verification_email(user.email, token)
 
-    return {"message": "User registered. Please verify email."}
+    return {"message": "User registered. Please verify email"}
+
 
 # ================= LOGIN =================
 @router.post("/login")
 def login(data: schema.LoginSchema, db: Session = Depends(get_db)):
+
+    if not data.email and not data.phone:
+        raise HTTPException(status_code=400, detail="Email or phone required")
 
     user = db.query(models.User).filter(
         (models.User.email == data.email) |
@@ -74,7 +89,10 @@ def login(data: schema.LoginSchema, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if user.is_verified == 0:
-        raise HTTPException(status_code=403, detail="Please verify your email")
+        raise HTTPException(
+            status_code=403,
+            detail="Email not verified. Please verify your email first."
+        )
 
     token = create_token({
         "sub": str(user.id),
@@ -94,6 +112,7 @@ def login(data: schema.LoginSchema, db: Session = Depends(get_db)):
         }
     }
 
+
 # ================= VERIFY EMAIL =================
 @router.get("/verify-email")
 def verify_email(token: str, db: Session = Depends(get_db)):
@@ -105,8 +124,43 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=400, detail="Invalid token")
 
+    if user.is_verified == 1:
+        return {"message": "Already verified"}
+
     user.is_verified = 1
     user.verification_token = None
+
     db.commit()
 
     return {"message": "Email verified successfully"}
+
+
+# ================= RESEND VERIFICATION =================
+@router.post("/resend-verification")
+def resend_verification(email: str, db: Session = Depends(get_db)):
+
+    user = db.query(models.User).filter(models.User.email == email).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.is_verified == 1:
+        return {"message": "Already verified"}
+
+    # rate limit (avoid spam)
+    now = time.time()
+    if email in last_sent_time and now - last_sent_time[email] < RESEND_COOLDOWN:
+        raise HTTPException(
+            status_code=429,
+            detail="Please wait 60 seconds before resending"
+        )
+
+    token = generate_verification_token(user.email)
+    user.verification_token = token
+    db.commit()
+
+    send_verification_email(user.email, token)
+
+    last_sent_time[email] = now
+
+    return {"message": "Verification email sent again"}
