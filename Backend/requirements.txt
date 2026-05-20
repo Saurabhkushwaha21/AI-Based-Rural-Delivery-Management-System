@@ -13,3 +13,4 @@ pandas
 joblib
 python-dotenv
 email-validator
+pymysql
