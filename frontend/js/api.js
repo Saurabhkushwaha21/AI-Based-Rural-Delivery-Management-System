@@ -1,5 +1,5 @@
 // ===== API CONFIGURATION =====
-const API_BASE = "http://127.0.0.1:8000"; // Replace with your actual backend URL
+const API_BASE = "https://ai-based-rural-delivery-management-system.onrender.com";
 
 // ===== API ENDPOINTS (matched exactly to FastAPI backend) =====
 const ENDPOINTS = {
