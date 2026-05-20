@@ -89,7 +89,7 @@ def login(data: schema.LoginSchema, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_verified:
-    raise HTTPException(
+        raise HTTPException(
         status_code=403,
         detail="Email not verified. Please verify your email first."
     )
