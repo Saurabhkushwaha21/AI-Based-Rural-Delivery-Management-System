@@ -88,11 +88,11 @@ def login(data: schema.LoginSchema, db: Session = Depends(get_db)):
     ):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if user.is_verified == 0:
-        raise HTTPException(
-            status_code=403,
-            detail="Email not verified. Please verify your email first."
-        )
+    if not user.is_verified:
+    raise HTTPException(
+        status_code=403,
+        detail="Email not verified. Please verify your email first."
+    )
 
     token = create_token({
         "sub": str(user.id),
