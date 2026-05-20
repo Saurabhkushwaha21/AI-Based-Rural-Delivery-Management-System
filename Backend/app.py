@@ -9,7 +9,8 @@ from database import Base, engine
 import models   # IMPORTANT: models load before create_all()
 
 # ===== ROUTERS =====
-from routes.auth import router as auth_router
+from auth1 import router as auth_router
+from routes.auth import router as otp_router
 from routes.orders import router as order_router
 from routes.hubs import router as hub_router
 from routes.delivery import router as delivery_router
@@ -38,6 +39,7 @@ Base.metadata.create_all(bind=engine)
 
 # ================= ROUTERS =================
 app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
+app.include_router(otp_router, prefix="/api/auth", tags=["OTP Auth"])
 app.include_router(order_router, prefix="/api/orders", tags=["Orders"])
 app.include_router(hub_router, prefix="/api/hubs", tags=["Hubs"])
 app.include_router(delivery_router, prefix="/api/delivery", tags=["Delivery"])
