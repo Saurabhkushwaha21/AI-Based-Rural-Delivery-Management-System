@@ -7,8 +7,8 @@ load_dotenv()
 
 def send_verification_email(to_email, token):
 
-    link = f"http://127.0.0.1:5500/pages/verify.html?token={token}"
-
+    link = f"https://ai-based-rural-delivery-management-system.onrender.com/api/auth/verify-email?token={token}"
+    
     msg = MIMEText(f"""
 Welcome to RuralDeliver 🚴
 
