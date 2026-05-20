@@ -1,6 +1,5 @@
 // ===== API CONFIGURATION =====
 const API_BASE = "https://ai-based-rural-delivery-management-system.onrender.com";
-
 // ===== API ENDPOINTS (matched exactly to FastAPI backend) =====
 const ENDPOINTS = {
   // Auth
