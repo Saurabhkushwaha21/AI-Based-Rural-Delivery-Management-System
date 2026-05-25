@@ -14,4 +14,3 @@ joblib
 python-dotenv
 email-validator
 pymysql
-python-3.11.9
