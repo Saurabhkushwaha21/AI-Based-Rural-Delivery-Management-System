@@ -41,6 +41,7 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 # ================= DEFAULT HUBS =================
+# ================= DEFAULT HUBS =================
 from database import SessionLocal
 
 db = SessionLocal()
@@ -50,22 +51,23 @@ existing_hub = db.query(models.Hub).first()
 if not existing_hub:
 
     hubs = [
+
         models.Hub(
             name="Bhopal Central Hub",
-            location="Bhopal",
-            capacity=100
+            latitude=23.2599,
+            longitude=77.4126
         ),
 
         models.Hub(
             name="Indore Delivery Hub",
-            location="Indore",
-            capacity=80
+            latitude=22.7196,
+            longitude=75.8577
         ),
 
         models.Hub(
             name="Sehore Rural Hub",
-            location="Sehore",
-            capacity=60
+            latitude=23.2035,
+            longitude=77.0851
         )
     ]
 
