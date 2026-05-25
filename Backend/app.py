@@ -40,6 +40,42 @@ app.add_middleware(
 # ================= DB INIT =================
 Base.metadata.create_all(bind=engine)
 
+# ================= DEFAULT HUBS =================
+from database import SessionLocal
+
+db = SessionLocal()
+
+existing_hub = db.query(models.Hub).first()
+
+if not existing_hub:
+
+    hubs = [
+        models.Hub(
+            name="Bhopal Central Hub",
+            location="Bhopal",
+            capacity=100
+        ),
+
+        models.Hub(
+            name="Indore Delivery Hub",
+            location="Indore",
+            capacity=80
+        ),
+
+        models.Hub(
+            name="Sehore Rural Hub",
+            location="Sehore",
+            capacity=60
+        )
+    ]
+
+    db.add_all(hubs)
+    db.commit()
+
+    print("✅ Default hubs added")
+
+db.close()
+
 # ================= ROUTERS =================
 app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
 app.include_router(otp_router, prefix="/api/auth", tags=["OTP Auth"])
