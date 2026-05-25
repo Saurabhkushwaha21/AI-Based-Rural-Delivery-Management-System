@@ -75,7 +75,7 @@ def forgot_password(data: PhoneRequest, db: Session = Depends(get_db)):
     clean_expired_otps()
 
     user = db.query(models.User).filter(
-        models.User.phone == data.phone
+    models.User.phone == data.phone.strip()
     ).first()
 
     if not user:
