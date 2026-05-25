@@ -93,7 +93,10 @@ def forgot_password(data: PhoneRequest, db: Session = Depends(get_db)):
 
     print(f"📩 OTP GENERATED: {data.phone} -> {otp}")
 
-    return {"message": "OTP sent successfully"}
+    return {
+    "message": "OTP sent successfully",
+    "otp": otp
+}
 
 # ================= VERIFY OTP =================
 @router.post("/verify-otp")

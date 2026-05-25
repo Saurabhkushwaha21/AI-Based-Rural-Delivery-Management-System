@@ -181,21 +181,27 @@ async function handleRegister(event) {
   setButtonLoading(btn, true, 'Creating account...');
 
   try {
-    const data = await API.register(name,email, phone,password, finalRole);
 
-    const token = typeof data === 'string'
-      ? data
-      : (data.access_token || data.token || 'mock_' + Date.now());
+  await API.register(name, email, phone, password, finalRole);
 
-    setAuth(token, finalRole, { name, phone, role: finalRole });
+  showToast(
+    'success',
+    'Registration Successful 🎉',
+    'Please verify your email before login.'
+  );
 
-    showToast('success', 'Account Created!', 'Welcome!');
-    setTimeout(() => redirectToDashboard(finalRole), 1000);
+  form.reset();
 
-  } catch (err) {
-    showToast('error', 'Registration Failed', err.message);
-    setButtonLoading(btn, false);
-  }
+  setTimeout(() => {
+    window.location.href = '../index.html';
+  }, 2000);
+
+} catch (err) {
+
+  showToast('error', 'Registration Failed', err.message);
+
+  setButtonLoading(btn, false);
+}
 }
 
 // ===== INIT USER UI (Sidebar / Topbar) =====

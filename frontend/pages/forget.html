@@ -402,39 +402,57 @@
   // STEP 2 — VERIFY OTP
   // ══════════════════════════════════════
   async function verifyOTP() {
-    const otp = getOtpValue();
-    if (otp.length < 6) {
-      showToast('warning', 'Incomplete OTP', 'Enter all 6 digits.');
-      return;
-    }
- 
-    const btn = document.getElementById('verify-otp-btn');
-    setButtonLoading(btn, true, 'Verifying...');
- 
-    try {
-      // ── Real API call ──
-      // await apiRequest(`${API_BASE}/api/auth/verify-otp`, 'POST', { phone: currentPhone, otp }, false);
-      await API.verifyOTP({ phone: currentPhone, otp });
- 
-      // Demo: accept '123456' or any 6-digit code
-      if (otp !== '123456' && otp.length === 6) {
-        // In real app this would throw if OTP is wrong
-        // For demo, we accept any 6 digits
-      }
- 
-      verifiedOtp = otp;
-      stopTimer();
-      showToast('success', 'OTP Verified! ✅', 'Now set your new password.');
-      goToStep('password');
-      document.getElementById('new-password').focus();
- 
-    } catch (err) {
-      clearOtpInputs(true);
-      showToast('error', 'Wrong OTP', err.message || 'The code is incorrect. Try again.');
-    }
-    setButtonLoading(btn, false);
+
+  const otp = getOtpValue();
+
+  if (otp.length < 6) {
+    showToast(
+      'warning',
+      'Incomplete OTP',
+      'Enter all 6 digits.'
+    );
+    return;
   }
- 
+
+  const btn = document.getElementById('verify-otp-btn');
+
+  setButtonLoading(btn, true, 'Verifying...');
+
+  try {
+
+    await API.verifyOTP({
+      phone: currentPhone,
+      otp
+    });
+
+    verifiedOtp = otp;
+
+    stopTimer();
+
+    showToast(
+      'success',
+      'OTP Verified! ✅',
+      'Now set your new password.'
+    );
+
+    goToStep('password');
+
+    document.getElementById('new-password').focus();
+
+  } catch (err) {
+
+    clearOtpInputs(true);
+
+    showToast(
+      'error',
+      'Wrong OTP',
+      err.message || 'The code is incorrect.'
+    );
+  }
+
+  setButtonLoading(btn, false);
+}
+
   // ══════════════════════════════════════
   // RESEND TIMER
   // ══════════════════════════════════════
@@ -556,7 +574,7 @@
       goToStep('success');
  
       // Auto-redirect after 4 seconds
-      setTimeout(() => window.location.href = 'index.html', 4000);
+      setTimeout(() => window.location.href = '../index.html', 4000);
  
     } catch (err) {
       showToast('error', 'Reset Failed', err.message || 'Something went wrong. Try again.');
