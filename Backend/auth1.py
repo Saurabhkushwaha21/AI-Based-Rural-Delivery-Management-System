@@ -58,7 +58,7 @@ def register(user: schema.UserCreate, db: Session = Depends(get_db)):
         password=hashed_password,
         role=user.role.lower(),
         verification_token=token,
-        is_verified=False
+        is_verified=True
     )
 
     db.add(new_user)
@@ -98,13 +98,6 @@ def login(data: schema.LoginSchema, db: Session = Depends(get_db)):
             detail="Invalid credentials"
         )
 
-    # verify email
-    if not user.is_verified:
-        raise HTTPException(
-            status_code=403,
-            detail="Email not verified. Please verify your email first."
-        )
-
     # create JWT
     token = create_token({
         "sub": str(user.id),
@@ -124,7 +117,6 @@ def login(data: schema.LoginSchema, db: Session = Depends(get_db)):
             "role": user.role
         }
     }
-
 
 # ================= VERIFY EMAIL =================
 @router.get("/verify-email")
