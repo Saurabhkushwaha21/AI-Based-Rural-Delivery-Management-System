@@ -4,7 +4,7 @@ An AI-powered smart logistics platform designed to improve delivery operations i
 
 This project combines FastAPI, Machine Learning, and modern web technologies to build a scalable and efficient delivery ecosystem focused on solving real-world rural logistics challenges.
 
-🌐 Live Demo
+🌐 Live Demo :ai-based-rural-delivery-management.netlify.app
 🔗 Frontend
 
 AI-Based Rural Delivery Management System
@@ -58,3 +58,6 @@ JavaScript
 Deployment
 Render (Backend Deployment)
 Netlify (Frontend Deployment)
+Screenshot--
+<img width="1917" height="960" alt="Screenshot 2026-05-25 225518" src="https://github.com/user-attachments/assets/264ab19b-e26e-41e1-a3f6-d6488e233b3d" />
+
