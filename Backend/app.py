@@ -6,7 +6,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import traceback
 
 from database import Base, engine
-import models   # IMPORTANT: models load before create_all()
+import models  
 
 # ===== ROUTERS =====
 from auth1 import router as auth_router
@@ -113,7 +113,7 @@ async def http_exception_handler(request: Request, exc):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    print("🔥 ERROR:", str(exc))
+    print(" ERROR:", str(exc))
     traceback.print_exc()
 
     return JSONResponse(
