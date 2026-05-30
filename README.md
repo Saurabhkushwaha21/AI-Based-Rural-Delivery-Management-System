@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 🚚 RuralDeliver – AI-Based Rural Delivery Management System
 
 An AI-powered smart logistics platform designed to improve delivery operations in rural areas through intelligent route optimization, automated delivery assignment, real-time tracking, and secure authentication.
@@ -131,13 +129,6 @@ IoT-Based Rural Delivery Monitoring
 👨‍💻 Author
 Saurabh Kushwaha
 Full Stack Developer
-⭐ Support
-
-If you like this project:
-
-⭐ Star the repository
-🍴 Fork the project
-📢 Share with others
 
 📜 License
 
