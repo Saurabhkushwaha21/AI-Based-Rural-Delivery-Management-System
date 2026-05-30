@@ -12,11 +12,11 @@ https://ai-based-rural-delivery-management.netlify.app
 
 ### Backend API
 
-https://ruraldeliver-backend.onrender.com
+https://ai-based-rural-delivery-management-system.onrender.com
 
 ### API Documentation
 
-https://ruraldeliver-backend.onrender.com/docs
+https://ai-based-rural-delivery-management-system.onrender.com/docs
 
 ---
 
